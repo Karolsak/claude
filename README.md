@@ -2,9 +2,22 @@
 
 A comprehensive Python + Tkinter application for electrical motor analysis with multi-physics simulation capabilities.
 
-## Features
+## Problems Solved
 
-### 1. Motor Rating Problem Solution
+### 1. Flywheel Inertia Problem ✨
+- **Problem**: Motor fitted with flywheel supplies load torque of 150 kg-m for 15 sec
+  - Motor torque limited to: 85 kg-m
+  - No load speed: 500 rpm
+  - Full load slip: 10%
+  - Find: Moment of inertia of flywheel
+
+- **Solution**: **J = 1825.14 kg·m²** ✅
+  - Method: Energy balance approach
+  - Torque deficit: 637.65 N·m (supplied by flywheel)
+  - Speed range: 450-500 rpm (47.12-52.36 rad/s)
+  - Energy stored: 26,080.8 J
+
+### 2. Motor Rating Problem Solution
 - Solves the RMS horsepower rating for motors with variable load cycles
 - **Problem**: Motor with load cycle:
   - Acceleration: 0 to 2000 hp linearly over 20 sec
@@ -13,7 +26,9 @@ A comprehensive Python + Tkinter application for electrical motor analysis with 
   - Rest: 0 hp for 20 sec
 - **Solution**: RMS HP = 1154.70 hp (approx 861.41 kW)
 
-### 2. User Interface (Tkinter GUI)
+## Features
+
+### 1. User Interface (Tkinter GUI)
 - **Main Control Tab**: Real-time motor control and monitoring
 - **Dynamic Simulation Tab**: Multi-state variable visualization
 - **Thermal Analysis Tab**: Temperature tracking and derating curves
@@ -21,7 +36,7 @@ A comprehensive Python + Tkinter application for electrical motor analysis with 
 - **Economic Analysis Tab**: Cost calculations and lifecycle analysis
 - **Advanced Controls Tab**: Various control methods including PID
 
-### 3. Mathematical Modeling
+### 2. Mathematical Modeling
 - **DC Motor Model**: Complete differential equations for:
   - Electrical dynamics (armature and field circuits)
   - Mechanical dynamics (torque, speed, position)
@@ -34,7 +49,7 @@ A comprehensive Python + Tkinter application for electrical motor analysis with 
   - θ: Angular position (rad)
   - T: Temperature (°C)
 
-### 4. Dynamic Simulation
+### 3. Dynamic Simulation
 - **Multiple ODE Solvers**:
   - **RK45**: Adaptive Runge-Kutta (default, most accurate)
   - **Euler**: Simple forward Euler method
@@ -43,7 +58,7 @@ A comprehensive Python + Tkinter application for electrical motor analysis with 
 - Real-time simulation with adjustable parameters
 - Interactive control sliders for voltage and load torque
 
-### 5. Multi-Physics Simulation
+### 4. Multi-Physics Simulation
 - **Electromagnetic Model**: Torque production, back-EMF
 - **Thermal Model**: Heat generation and dissipation
   - Coupled electromagnetic-thermal equations
@@ -53,7 +68,7 @@ A comprehensive Python + Tkinter application for electrical motor analysis with 
   - Bearing load calculations
   - Transient analysis
 
-### 6. Loss Analysis
+### 5. Loss Analysis
 Detailed breakdown of motor losses:
 - **Copper Losses**: I²R losses in armature and field windings
 - **Iron Losses**: Core losses proportional to speed²
@@ -62,14 +77,14 @@ Detailed breakdown of motor losses:
 - Real-time efficiency calculation
 - Visual pie chart and time-series plots
 
-### 7. Visualization
+### 6. Visualization
 - **Dynamic Graphs**: Real-time updating plots
 - **Main Plots**: Speed, current, torque, power vs time
 - **Phase Portrait**: Speed vs current state-space plot
 - **Loss Breakdown**: Bar charts and pie charts
 - **Thermal Curves**: Temperature rise and derating factor
 
-### 8. Economic Analysis
+### 7. Economic Analysis
 - Energy cost calculation ($/kWh)
 - Maintenance cost tracking
 - Lifecycle cost analysis (10-year projection)
@@ -77,7 +92,7 @@ Detailed breakdown of motor losses:
 - Cumulative cost visualization
 - Payback period estimation
 
-### 9. Advanced Controls
+### 8. Advanced Controls
 Multiple control strategies:
 - Open Loop Control
 - Armature Voltage Control
@@ -87,7 +102,7 @@ Multiple control strategies:
 - Vector Control
 - Field-Oriented Control (FOC)
 
-### 10. Thermal & Derating
+### 9. Thermal & Derating
 - Real-time temperature monitoring
 - Automatic derating curve:
   - Full power: T < 100°C
@@ -95,13 +110,13 @@ Multiple control strategies:
   - Shutdown protection: T > 120°C
 - Thermal time constant calculation
 
-### 11. Power Consumption Tracking
+### 10. Power Consumption Tracking
 - Input power monitoring
 - Output power calculation
 - Real-time efficiency
 - Energy consumption integration
 
-### 12. Auto-Scaling
+### 11. Auto-Scaling
 - Automatic width and height adjustment on window resize
 - Responsive layout using Tkinter pack geometry manager
 - Canvas auto-scaling for plots

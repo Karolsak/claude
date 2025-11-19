@@ -16,8 +16,69 @@ import math
 from datetime import datetime
 
 # ===============================================================================
-# PART 1: MOTOR RATING PROBLEM SOLUTION
+# PART 1: FLYWHEEL AND MOTOR RATING PROBLEM SOLUTIONS
 # ===============================================================================
+
+def calculate_flywheel_inertia():
+    """
+    Solve the flywheel inertia problem:
+    - Motor with flywheel supplies load torque of 150 kg-m for 15 sec
+    - Motor torque limited to 85 kg-m
+    - No load speed: 500 rpm (slip = 0%)
+    - Full load slip: 10%
+    - Find: Moment of inertia of flywheel
+
+    Solution Approach:
+    During load period, torque deficit = Load torque - Motor torque
+    This deficit is supplied by flywheel kinetic energy
+    Energy from flywheel = ½J(ω₁² - ω₂²)
+    """
+    # Given parameters
+    T_load_kgm = 150  # Load torque in kg-m
+    T_motor_kgm = 85  # Motor torque in kg-m
+    t_load = 15  # Load period in seconds
+    N_no_load = 500  # No load speed in rpm
+    slip_full_load = 0.10  # 10% slip at full load
+
+    # Convert kg-m to N·m (1 kg-m = 9.81 N·m)
+    g = 9.81
+    T_load = T_load_kgm * g  # 1471.5 N·m
+    T_motor = T_motor_kgm * g  # 833.85 N·m
+
+    # Calculate speeds in rad/s
+    omega_no_load = N_no_load * 2 * math.pi / 60  # 52.36 rad/s
+    N_full_load = N_no_load * (1 - slip_full_load)  # 450 rpm
+    omega_full_load = N_full_load * 2 * math.pi / 60  # 47.12 rad/s
+
+    # Torque deficit (supplied by flywheel)
+    T_deficit = T_load - T_motor  # 637.65 N·m
+
+    # Energy method:
+    # During load period, flywheel decelerates from omega_no_load to omega_full_load
+    # Energy released = ½J(ω₁² - ω₂²) = T_deficit × θ
+    # where θ = average_speed × time = [(ω₁ + ω₂)/2] × t
+    # Simplifying: J = T_deficit × t / (ω₁ - ω₂)
+
+    J = T_deficit * t_load / (omega_no_load - omega_full_load)
+
+    # Alternative calculation using energy balance
+    energy_deficit = T_deficit * ((omega_no_load + omega_full_load) / 2) * t_load
+    delta_omega_squared = omega_no_load**2 - omega_full_load**2
+    J_alternative = 2 * energy_deficit / delta_omega_squared
+
+    return {
+        'J': J,
+        'J_alternative': J_alternative,
+        'T_load': T_load,
+        'T_motor': T_motor,
+        'T_deficit': T_deficit,
+        'omega_no_load': omega_no_load,
+        'omega_full_load': omega_full_load,
+        'N_no_load': N_no_load,
+        'N_full_load': N_full_load,
+        'energy_stored': 0.5 * J * delta_omega_squared,
+        't_load': t_load
+    }
 
 def calculate_motor_rating():
     """
@@ -266,6 +327,18 @@ class AdvancedMotorAnalysisApp:
         title_label = ttk.Label(left_frame, text="Motor Control Panel",
                                font=('Arial', 14, 'bold'))
         title_label.pack(pady=10)
+
+        # Flywheel Problem Solution Display
+        flywheel_frame = ttk.LabelFrame(left_frame, text="Flywheel Inertia Problem Solution", padding=10)
+        flywheel_frame.pack(fill=tk.X, pady=10)
+
+        flywheel_result = calculate_flywheel_inertia()
+
+        ttk.Label(flywheel_frame, text=f"Flywheel Inertia: {flywheel_result['J']:.2f} kg·m²",
+                 font=('Arial', 11, 'bold'), foreground='blue').pack(anchor=tk.W)
+        ttk.Label(flywheel_frame, text=f"Torque Deficit: {flywheel_result['T_deficit']:.2f} N·m").pack(anchor=tk.W)
+        ttk.Label(flywheel_frame, text=f"Speed Range: {flywheel_result['N_full_load']:.0f} - {flywheel_result['N_no_load']:.0f} rpm").pack(anchor=tk.W)
+        ttk.Label(flywheel_frame, text=f"Energy Stored: {flywheel_result['energy_stored']:.2f} J").pack(anchor=tk.W)
 
         # Motor Rating Solution Display
         rating_frame = ttk.LabelFrame(left_frame, text="Motor Rating Problem Solution", padding=10)
@@ -1041,10 +1114,30 @@ Cost per Operating Hour: ${total_annual_cost/op_hours:.4f}
 def main():
     """Main entry point for the application"""
 
-    # Print motor rating solution to console
-    print("=" * 60)
+    # Print flywheel problem solution to console
+    print("=" * 70)
+    print("FLYWHEEL INERTIA PROBLEM SOLUTION")
+    print("=" * 70)
+    flywheel_result = calculate_flywheel_inertia()
+    print(f"\nProblem Statement:")
+    print(f"  - Load Torque: 150 kg-m for 15 seconds")
+    print(f"  - Motor Torque Limited: 85 kg-m")
+    print(f"  - No Load Speed: 500 rpm")
+    print(f"  - Full Load Slip: 10%")
+    print(f"\nSolution:")
+    print(f"  - No Load Speed: {flywheel_result['N_no_load']:.0f} rpm ({flywheel_result['omega_no_load']:.2f} rad/s)")
+    print(f"  - Full Load Speed: {flywheel_result['N_full_load']:.0f} rpm ({flywheel_result['omega_full_load']:.2f} rad/s)")
+    print(f"  - Load Torque: {flywheel_result['T_load']:.2f} N·m")
+    print(f"  - Motor Torque: {flywheel_result['T_motor']:.2f} N·m")
+    print(f"  - Torque Deficit: {flywheel_result['T_deficit']:.2f} N·m")
+    print(f"  - Energy Stored in Flywheel: {flywheel_result['energy_stored']:.2f} J")
+    print(f"\n  *** FLYWHEEL MOMENT OF INERTIA: {flywheel_result['J']:.2f} kg·m² ***")
+    print(f"  (Alternative method: {flywheel_result['J_alternative']:.2f} kg·m²)")
+    print("\n" + "=" * 70)
+
+    print("\n" + "=" * 70)
     print("MOTOR RATING PROBLEM SOLUTION")
-    print("=" * 60)
+    print("=" * 70)
     result = calculate_motor_rating()
     print(f"\nLoad Cycle:")
     print(f"  - Acceleration: 0 to 2000 hp in 20 sec")
@@ -1052,9 +1145,9 @@ def main():
     print(f"  - Deceleration: 330 to 0 hp in 10 sec (regenerative)")
     print(f"  - Rest: 0 hp for 20 sec")
     print(f"\nTotal cycle time: {result['total_time']} seconds")
-    print(f"\nRMS Horsepower Rating: {result['rms_hp']:.2f} hp")
-    print(f"Equivalent to: {result['rms_hp'] * 0.746:.2f} kW")
-    print("\n" + "=" * 60)
+    print(f"\n  *** RMS HORSEPOWER RATING: {result['rms_hp']:.2f} hp ***")
+    print(f"  Equivalent to: {result['rms_hp'] * 0.746:.2f} kW")
+    print("\n" + "=" * 70)
 
     # Create and run GUI application
     root = tk.Tk()
