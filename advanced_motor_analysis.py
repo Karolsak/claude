@@ -134,7 +134,7 @@ def calculate_motor_rating():
 # ===============================================================================
 
 class DCMotorModel:
-    """DC Motor mathematical model with electrical, mechanical, and thermal dynamics"""
+    """DC Motor mathematical model with electrical, mechanical, thermal, and stress dynamics"""
 
     def __init__(self, Ra=0.5, La=0.01, Rf=100, Lf=10, J=0.5, B=0.1, Kt=1.0, Kb=1.0):
         """
@@ -161,11 +161,30 @@ class DCMotorModel:
         self.thermal_resistance = 2.0  # °C/W
         self.thermal_capacitance = 500  # J/°C
         self.ambient_temp = 25  # °C
+        self.max_temp = 120  # °C
+        self.derating_start_temp = 100  # °C
 
         # Loss coefficients
         self.iron_loss_coeff = 0.01
         self.mech_loss_coeff = 0.005
         self.stray_loss_coeff = 0.002
+
+        # Mechanical parameters for stress analysis
+        self.shaft_diameter = 0.05  # meters (50mm)
+        self.shaft_length = 0.3  # meters
+        self.bearing_distance = 0.25  # meters between bearings
+        self.rotor_mass = 15.0  # kg
+        self.shaft_material_modulus = 200e9  # Pa (steel)
+        self.shaft_shear_modulus = 80e9  # Pa
+        self.shaft_yield_strength = 250e6  # Pa
+
+        # Vibration parameters
+        self.natural_frequency = 100  # Hz
+        self.damping_ratio = 0.05
+
+        # Bearing parameters
+        self.bearing_life_rating = 10000  # hours
+        self.bearing_dynamic_load = 5000  # N
 
     def get_differential_equations(self, t, state, Va, Vf, Tload):
         """
@@ -224,6 +243,126 @@ class DCMotorModel:
             'total': copper_loss_armature + copper_loss_field + iron_loss + mech_loss + stray_loss
         }
 
+    def calculate_shaft_stress(self, torque, omega, acceleration):
+        """
+        Calculate shaft stress components
+        Returns: Dict with torsional stress, bending stress, and combined stress
+        """
+        # Torsional shear stress: τ = 16T/(πd³)
+        d = self.shaft_diameter
+        torsional_stress = (16 * abs(torque)) / (math.pi * d**3)
+
+        # Angular acceleration creates dynamic torque
+        dynamic_torque = self.J * acceleration
+
+        # Polar moment of inertia
+        J_polar = math.pi * d**4 / 32
+
+        # Shaft twist angle (radians)
+        shaft_twist = (torque * self.shaft_length) / (self.shaft_shear_modulus * J_polar)
+
+        # Critical speed (first mode)
+        # ω_critical = (π²/L²) * sqrt(EI/m)
+        I_area = math.pi * d**4 / 64
+        mass_per_length = self.rotor_mass / self.shaft_length
+        critical_speed = (math.pi**2 / self.shaft_length**2) * math.sqrt(
+            (self.shaft_material_modulus * I_area) / mass_per_length
+        )
+
+        # Safety factor
+        safety_factor = self.shaft_yield_strength / torsional_stress if torsional_stress > 0 else float('inf')
+
+        return {
+            'torsional_stress': torsional_stress,
+            'dynamic_torque': dynamic_torque,
+            'shaft_twist': shaft_twist,
+            'critical_speed': critical_speed,
+            'safety_factor': safety_factor,
+            'max_stress': torsional_stress  # Can be extended with combined stress
+        }
+
+    def calculate_bearing_loads(self, torque, omega, acceleration):
+        """
+        Calculate bearing loads and life expectancy
+        """
+        # Radial load due to rotor weight (static)
+        radial_load_static = (self.rotor_mass * 9.81) / 2  # Divided between two bearings
+
+        # Dynamic load due to torque pulsations and unbalance
+        # Assume 5% unbalance
+        unbalance_factor = 0.05
+        centrifugal_force = self.rotor_mass * unbalance_factor * self.shaft_diameter/2 * omega**2
+
+        # Total radial load (vector sum, simplified to arithmetic sum)
+        radial_load_total = radial_load_static + centrifugal_force/2
+
+        # Axial load (typically magnetic pull, assume 10% of radial)
+        axial_load = 0.1 * radial_load_total
+
+        # Equivalent dynamic load: P = X*Fr + Y*Fa
+        # For ball bearings, simplified: X=1, Y=0 for small axial loads
+        equivalent_load = radial_load_total + 0.5 * axial_load
+
+        # Bearing life calculation (L10 life in hours)
+        # L10 = (C/P)^p * 10^6 / (60 * n)
+        # where p=3 for ball bearings, C is dynamic load rating
+        if omega > 0:
+            rpm = omega * 60 / (2 * math.pi)
+            p_exponent = 3  # For ball bearings
+            bearing_life = ((self.bearing_dynamic_load / equivalent_load) ** p_exponent *
+                          10**6 / (60 * rpm))
+        else:
+            bearing_life = float('inf')
+
+        return {
+            'radial_load': radial_load_total,
+            'axial_load': axial_load,
+            'equivalent_load': equivalent_load,
+            'bearing_life_hours': bearing_life,
+            'centrifugal_force': centrifugal_force
+        }
+
+    def calculate_thermal_derating(self, temperature):
+        """Calculate power derating factor based on temperature"""
+        if temperature < self.derating_start_temp:
+            return 1.0
+        elif temperature < self.max_temp:
+            return 1.0 - (temperature - self.derating_start_temp) / \
+                   (self.max_temp - self.derating_start_temp)
+        else:
+            return 0.0
+
+    def calculate_vibration(self, omega, torque_ripple):
+        """
+        Calculate vibration amplitude based on torque ripple
+        """
+        # Natural frequency in rad/s
+        omega_n = self.natural_frequency * 2 * math.pi
+
+        # Forcing frequency
+        omega_f = omega
+
+        # Frequency ratio
+        r = omega_f / omega_n if omega_n > 0 else 0
+
+        # Magnification factor
+        denominator = math.sqrt((1 - r**2)**2 + (2 * self.damping_ratio * r)**2)
+        if denominator > 0:
+            magnification = 1 / denominator
+        else:
+            magnification = 1
+
+        # Vibration amplitude (simplified)
+        base_amplitude = torque_ripple * 0.001  # Convert to mm
+        vibration_amplitude = base_amplitude * magnification
+
+        return {
+            'amplitude': vibration_amplitude,
+            'magnification_factor': magnification,
+            'frequency_ratio': r,
+            'natural_frequency': self.natural_frequency
+        }
+
 class InductionMotorModel:
     """Three-phase induction motor model"""
 
@@ -261,8 +400,10 @@ class AdvancedMotorAnalysisApp:
         self.data_history = {
             'current': [], 'voltage': [], 'speed': [], 'torque': [],
             'power': [], 'efficiency': [], 'temperature': [],
-            'losses': []
+            'losses': [], 'shaft_stress': [], 'bearing_load': [],
+            'vibration': [], 'acceleration': [], 'safety_factor': []
         }
+        self.previous_omega = 0
 
         # Motor model
         self.motor = DCMotorModel()
@@ -275,6 +416,12 @@ class AdvancedMotorAnalysisApp:
         self.Vf = tk.DoubleVar(value=220)
         self.Tload = tk.DoubleVar(value=10)
         self.simulation_method = tk.StringVar(value="RK45")
+
+        # PID control variables
+        self.integral_error = 0
+        self.previous_error = 0
+        self.control_output_history = []
+        self.error_history = []
 
         # Economic parameters
         self.energy_cost = tk.DoubleVar(value=0.12)  # $/kWh
@@ -298,6 +445,7 @@ class AdvancedMotorAnalysisApp:
         self.tab_dynamics = ttk.Frame(self.notebook)
         self.tab_thermal = ttk.Frame(self.notebook)
         self.tab_losses = ttk.Frame(self.notebook)
+        self.tab_mechanical = ttk.Frame(self.notebook)
         self.tab_economic = ttk.Frame(self.notebook)
         self.tab_controls = ttk.Frame(self.notebook)
 
@@ -305,6 +453,7 @@ class AdvancedMotorAnalysisApp:
         self.notebook.add(self.tab_dynamics, text="Dynamic Simulation")
         self.notebook.add(self.tab_thermal, text="Thermal Analysis")
         self.notebook.add(self.tab_losses, text="Loss Analysis")
+        self.notebook.add(self.tab_mechanical, text="Mechanical Stress")
         self.notebook.add(self.tab_economic, text="Economic Analysis")
         self.notebook.add(self.tab_controls, text="Advanced Controls")
 
@@ -313,6 +462,7 @@ class AdvancedMotorAnalysisApp:
         self.setup_dynamics_tab()
         self.setup_thermal_tab()
         self.setup_losses_tab()
+        self.setup_mechanical_tab()
         self.setup_economic_tab()
         self.setup_controls_tab()
 
@@ -603,6 +753,112 @@ Thermal time constant:
 
         self.losses_fig.tight_layout()
 
+    def setup_mechanical_tab(self):
+        """Mechanical stress and vibration analysis"""
+
+        frame = ttk.Frame(self.tab_mechanical)
+        frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Left panel - Mechanical parameters
+        left_panel = ttk.LabelFrame(frame, text="Mechanical Parameters", padding=10)
+        left_panel.pack(side=tk.LEFT, fill=tk.Y, padx=5)
+
+        ttk.Label(left_panel, text="Shaft & Bearing Analysis",
+                 font=('Arial', 11, 'bold')).pack(pady=10)
+
+        mech_params = [
+            ("Shaft Diameter (mm):", self.motor.shaft_diameter * 1000),
+            ("Shaft Length (mm):", self.motor.shaft_length * 1000),
+            ("Rotor Mass (kg):", self.motor.rotor_mass),
+            ("Material: Steel", ""),
+            ("Yield Strength (MPa):", self.motor.shaft_yield_strength / 1e6),
+            ("", ""),
+            ("Bearing Type: Ball Bearing", ""),
+            ("Dynamic Load Rating (N):", self.motor.bearing_dynamic_load),
+            ("Rated Life (hours):", self.motor.bearing_life_rating)
+        ]
+
+        for label, value in mech_params:
+            frame_row = ttk.Frame(left_panel)
+            frame_row.pack(fill=tk.X, pady=3)
+            ttk.Label(frame_row, text=label, width=25).pack(side=tk.LEFT)
+            if value:
+                if isinstance(value, str):
+                    ttk.Label(frame_row, text=value, font=('Courier', 9)).pack(side=tk.RIGHT)
+                else:
+                    ttk.Label(frame_row, text=f"{value:.2f}", font=('Courier', 9)).pack(side=tk.RIGHT)
+
+        # Real-time mechanical status
+        status_frame = ttk.LabelFrame(left_panel, text="Current Mechanical Status", padding=10)
+        status_frame.pack(fill=tk.X, pady=20)
+
+        self.mech_status_labels = {}
+        mech_items = [
+            ('Shaft Stress', 'MPa'),
+            ('Safety Factor', ''),
+            ('Bearing Load', 'N'),
+            ('Bearing Life', 'hrs'),
+            ('Vibration', 'μm'),
+            ('Twist Angle', 'deg')
+        ]
+
+        for i, (name, unit) in enumerate(mech_items):
+            ttk.Label(status_frame, text=f"{name}:").grid(row=i, column=0, sticky=tk.W, pady=2)
+            label = ttk.Label(status_frame, text=f"0.00 {unit}", font=('Courier', 9))
+            label.grid(row=i, column=1, sticky=tk.E, padx=10, pady=2)
+            self.mech_status_labels[name] = label
+
+        # Right panel - Mechanical visualization
+        right_panel = ttk.Frame(frame)
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5)
+
+        self.mechanical_fig = Figure(figsize=(10, 8), dpi=100)
+        self.mechanical_canvas = FigureCanvasTkAgg(self.mechanical_fig, right_panel)
+        self.mechanical_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+        # Create subplots for mechanical analysis
+        self.ax_mech1 = self.mechanical_fig.add_subplot(321)
+        self.ax_mech2 = self.mechanical_fig.add_subplot(322)
+        self.ax_mech3 = self.mechanical_fig.add_subplot(323)
+        self.ax_mech4 = self.mechanical_fig.add_subplot(324)
+        self.ax_mech5 = self.mechanical_fig.add_subplot(325)
+        self.ax_mech6 = self.mechanical_fig.add_subplot(326)
+
+        self.ax_mech1.set_title('Shaft Torsional Stress')
+        self.ax_mech1.set_ylabel('Stress (MPa)')
+        self.ax_mech1.grid(True)
+        # Add safety limit line
+        self.ax_mech1.axhline(y=self.motor.shaft_yield_strength/1e6, color='r',
+                             linestyle='--', label='Yield Strength')
+        self.ax_mech1.legend()
+
+        self.ax_mech2.set_title('Safety Factor')
+        self.ax_mech2.set_ylabel('Safety Factor')
+        self.ax_mech2.grid(True)
+        self.ax_mech2.axhline(y=2.0, color='orange', linestyle='--', label='Min Recommended')
+        self.ax_mech2.legend()
+
+        self.ax_mech3.set_title('Bearing Radial Load')
+        self.ax_mech3.set_ylabel('Load (N)')
+        self.ax_mech3.grid(True)
+
+        self.ax_mech4.set_title('Bearing Life Expectancy')
+        self.ax_mech4.set_ylabel('Life (hours)')
+        self.ax_mech4.grid(True)
+        self.ax_mech4.set_yscale('log')
+
+        self.ax_mech5.set_title('Vibration Amplitude')
+        self.ax_mech5.set_xlabel('Time (s)')
+        self.ax_mech5.set_ylabel('Amplitude (μm)')
+        self.ax_mech5.grid(True)
+
+        self.ax_mech6.set_title('Angular Acceleration')
+        self.ax_mech6.set_xlabel('Time (s)')
+        self.ax_mech6.set_ylabel('Accel (rad/s²)')
+        self.ax_mech6.grid(True)
+
+        self.mechanical_fig.tight_layout()
+
     def setup_economic_tab(self):
         """Economic analysis tab"""
 
@@ -760,6 +1016,35 @@ Thermal time constant:
             self.data_history[key] = []
         self.update_plots()
 
+    def calculate_pid_control(self, setpoint, current_value, dt):
+        """Calculate PID control output"""
+        error = setpoint - current_value
+
+        # Proportional term
+        P = self.Kp.get() * error
+
+        # Integral term with anti-windup
+        self.integral_error += error * dt
+        # Anti-windup: limit integral term
+        max_integral = 100
+        self.integral_error = max(min(self.integral_error, max_integral), -max_integral)
+        I = self.Ki.get() * self.integral_error
+
+        # Derivative term
+        derivative = (error - self.previous_error) / dt if dt > 0 else 0
+        D = self.Kd.get() * derivative
+
+        # Update previous error
+        self.previous_error = error
+
+        # Total control output
+        control_output = P + I + D
+
+        # Limit control output to valid voltage range
+        control_output = max(min(control_output, 440), 0)
+
+        return control_output, error
+
     def run_simulation_step(self):
         """Execute one simulation step"""
         if not self.is_running:
@@ -771,6 +1056,14 @@ Thermal time constant:
         Va = self.Va.get()
         Vf = self.Vf.get()
         Tload = self.Tload.get()
+
+        # Apply control method if PID is selected
+        if self.control_method.get() == "PID Speed Control":
+            setpoint = self.setpoint.get()
+            current_speed = self.state[2]  # omega
+            Va, error = self.calculate_pid_control(setpoint, current_speed, dt)
+            self.control_output_history.append(Va)
+            self.error_history.append(error)
 
         # Solve differential equations
         if self.simulation_method.get() == "Euler":
@@ -804,6 +1097,18 @@ Thermal time constant:
         losses = self.motor.get_losses(ia, if_current, omega)
         efficiency = (Pout / Pin * 100) if Pin > 0.1 else 0
 
+        # Calculate angular acceleration
+        acceleration = (omega - self.previous_omega) / dt if dt > 0 else 0
+        self.previous_omega = omega
+
+        # Calculate mechanical stress and bearing loads
+        stress_data = self.motor.calculate_shaft_stress(Te, omega, acceleration)
+        bearing_data = self.motor.calculate_bearing_loads(Te, omega, acceleration)
+
+        # Calculate vibration (torque ripple simplified as 5% of torque)
+        torque_ripple = 0.05 * abs(Te)
+        vibration_data = self.motor.calculate_vibration(omega, torque_ripple)
+
         # Store data
         self.time_history.append(self.simulation_time)
         self.data_history['current'].append(ia)
@@ -814,6 +1119,11 @@ Thermal time constant:
         self.data_history['efficiency'].append(efficiency)
         self.data_history['temperature'].append(temp)
         self.data_history['losses'].append(losses['total'])
+        self.data_history['shaft_stress'].append(stress_data['torsional_stress'])
+        self.data_history['bearing_load'].append(bearing_data['radial_load'])
+        self.data_history['vibration'].append(vibration_data['amplitude'])
+        self.data_history['acceleration'].append(acceleration)
+        self.data_history['safety_factor'].append(min(stress_data['safety_factor'], 50))
 
         # Update status labels
         self.status_labels['Time'].config(text=f"{self.simulation_time:.2f} s")
@@ -822,6 +1132,20 @@ Thermal time constant:
         self.status_labels['Torque'].config(text=f"{Te:.2f} N·m")
         self.status_labels['Power'].config(text=f"{Pout:.2f} W")
         self.status_labels['Temp'].config(text=f"{temp:.2f} °C")
+
+        # Update mechanical status labels
+        self.mech_status_labels['Shaft Stress'].config(
+            text=f"{stress_data['torsional_stress']/1e6:.2f} MPa")
+        self.mech_status_labels['Safety Factor'].config(
+            text=f"{min(stress_data['safety_factor'], 999):.2f}")
+        self.mech_status_labels['Bearing Load'].config(
+            text=f"{bearing_data['radial_load']:.2f} N")
+        self.mech_status_labels['Bearing Life'].config(
+            text=f"{min(bearing_data['bearing_life_hours'], 999999):.0f} hrs")
+        self.mech_status_labels['Vibration'].config(
+            text=f"{vibration_data['amplitude']*1000:.2f} μm")
+        self.mech_status_labels['Twist Angle'].config(
+            text=f"{math.degrees(stress_data['shaft_twist']):.4f} deg")
 
         # Update plots every 50ms
         if len(self.time_history) % 5 == 0:
@@ -895,6 +1219,8 @@ Thermal time constant:
             self.update_dynamics_plots()
             self.update_thermal_plots()
             self.update_losses_plots()
+            self.update_mechanical_plots()
+            self.update_control_plots()
 
     def update_dynamics_plots(self):
         """Update dynamics tab plots"""
@@ -1025,6 +1351,81 @@ Thermal time constant:
             self.losses_fig.tight_layout()
             self.losses_canvas.draw()
 
+    def update_mechanical_plots(self):
+        """Update mechanical stress and vibration plots"""
+        t = self.time_history
+
+        if not t:
+            return
+
+        # Shaft stress
+        self.ax_mech1.clear()
+        stress_mpa = [s/1e6 for s in self.data_history['shaft_stress']]
+        self.ax_mech1.plot(t, stress_mpa, 'b-', linewidth=2)
+        self.ax_mech1.axhline(y=self.motor.shaft_yield_strength/1e6, color='r',
+                             linestyle='--', label='Yield Strength')
+        self.ax_mech1.set_title('Shaft Torsional Stress')
+        self.ax_mech1.set_ylabel('Stress (MPa)')
+        self.ax_mech1.grid(True)
+        self.ax_mech1.legend()
+
+        # Safety factor
+        self.ax_mech2.clear()
+        self.ax_mech2.plot(t, self.data_history['safety_factor'], 'g-', linewidth=2)
+        self.ax_mech2.axhline(y=2.0, color='orange', linestyle='--', label='Min Recommended')
+        self.ax_mech2.set_title('Safety Factor')
+        self.ax_mech2.set_ylabel('Safety Factor')
+        self.ax_mech2.grid(True)
+        self.ax_mech2.legend()
+        self.ax_mech2.set_ylim([0, 20])
+
+        # Bearing load
+        self.ax_mech3.clear()
+        self.ax_mech3.plot(t, self.data_history['bearing_load'], 'r-', linewidth=2)
+        self.ax_mech3.set_title('Bearing Radial Load')
+        self.ax_mech3.set_ylabel('Load (N)')
+        self.ax_mech3.grid(True)
+
+        # Bearing life - calculate from current data
+        bearing_life_data = []
+        for i in range(len(t)):
+            omega = self.data_history['speed'][i]
+            bearing_load = self.data_history['bearing_load'][i]
+            if omega > 0.1 and bearing_load > 0:
+                rpm = omega * 60 / (2 * math.pi)
+                life = ((self.motor.bearing_dynamic_load / bearing_load) ** 3 *
+                       10**6 / (60 * rpm))
+                bearing_life_data.append(min(life, 1e6))
+            else:
+                bearing_life_data.append(1e6)
+
+        self.ax_mech4.clear()
+        self.ax_mech4.plot(t, bearing_life_data, 'm-', linewidth=2)
+        self.ax_mech4.set_title('Bearing Life Expectancy')
+        self.ax_mech4.set_ylabel('Life (hours)')
+        self.ax_mech4.grid(True)
+        self.ax_mech4.set_yscale('log')
+
+        # Vibration
+        self.ax_mech5.clear()
+        vibration_um = [v*1000 for v in self.data_history['vibration']]
+        self.ax_mech5.plot(t, vibration_um, 'c-', linewidth=2)
+        self.ax_mech5.set_title('Vibration Amplitude')
+        self.ax_mech5.set_xlabel('Time (s)')
+        self.ax_mech5.set_ylabel('Amplitude (μm)')
+        self.ax_mech5.grid(True)
+
+        # Angular acceleration
+        self.ax_mech6.clear()
+        self.ax_mech6.plot(t, self.data_history['acceleration'], 'k-', linewidth=2)
+        self.ax_mech6.set_title('Angular Acceleration')
+        self.ax_mech6.set_xlabel('Time (s)')
+        self.ax_mech6.set_ylabel('Accel (rad/s²)')
+        self.ax_mech6.grid(True)
+
+        self.mechanical_fig.tight_layout()
+        self.mechanical_canvas.draw()
+
     def calculate_economics(self):
         """Calculate economic analysis"""
         # Get parameters
@@ -1099,6 +1500,32 @@ Cost per Operating Hour: ${total_annual_cost/op_hours:.4f}
 
         self.economic_fig.tight_layout()
         self.economic_canvas.draw()
+
+    def update_control_plots(self):
+        """Update control system plots"""
+        if not self.control_output_history or not self.error_history:
+            return
+
+        t = self.time_history[-len(self.control_output_history):]
+
+        # Control signal
+        self.ax_ctrl1.clear()
+        self.ax_ctrl1.plot(t, self.control_output_history, 'b-', linewidth=2)
+        self.ax_ctrl1.set_title('Control Signal (Armature Voltage)')
+        self.ax_ctrl1.set_ylabel('Voltage (V)')
+        self.ax_ctrl1.grid(True)
+
+        # Tracking error
+        self.ax_ctrl2.clear()
+        self.ax_ctrl2.plot(t, self.error_history, 'r-', linewidth=2)
+        self.ax_ctrl2.axhline(y=0, color='k', linestyle='--', alpha=0.3)
+        self.ax_ctrl2.set_title('Speed Tracking Error')
+        self.ax_ctrl2.set_xlabel('Time (s)')
+        self.ax_ctrl2.set_ylabel('Error (rad/s)')
+        self.ax_ctrl2.grid(True)
+
+        self.control_fig.tight_layout()
+        self.control_canvas.draw()
 
     def on_window_resize(self, event):
         """Handle window resize for auto-scaling"""
