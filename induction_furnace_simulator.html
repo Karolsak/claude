@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Induction Furnace & Multi-Physics Simulation</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .tabs {
+            display: flex;
+            background: #f0f0f0;
+            border-bottom: 2px solid #ddd;
+            overflow-x: auto;
+        }
+
+        .tab {
+            padding: 15px 25px;
+            cursor: pointer;
+            background: #e0e0e0;
+            border: none;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .tab:hover {
+            background: #d0d0d0;
+        }
+
+        .tab.active {
+            background: white;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            padding: 30px;
+            animation: fadeIn 0.3s;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .panel {
+            background: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #333;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input[type="number"], select {
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 1em;
+            transition: border 0.3s;
+        }
+
+        input[type="number"]:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .slider-container {
+            margin: 15px 0;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+            color: white;
+        }
+
+        .results {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.6;
+            max-height: 500px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 20px;
+        }
+
+        .chart-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+
+        .status {
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.running {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.completed {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .highlight {
+            background: #ffeb3b;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .loss-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .loss-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .loss-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .loss-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .chart-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .tab {
+                padding: 10px 15px;
+                font-size: 0.9em;
+            }
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Advanced Induction Furnace & Multi-Physics Simulation</h1>
+            <p class="subtitle">Comprehensive Electrical Engineering Analysis Tool</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" onclick="showTab('furnace')">🔥 Induction Furnace</button>
+            <button class="tab" onclick="showTab('simulation')">⚙️ Simulation Setup</button>
+            <button class="tab" onclick="showTab('visualization')">📊 Visualization</button>
+            <button class="tab" onclick="showTab('control')">🎛️ Advanced Control</button>
+            <button class="tab" onclick="showTab('economic')">💰 Economic Analysis</button>
+            <button class="tab" onclick="showTab('multiphysics')">🔬 Multi-Physics</button>
+        </div>
+
+        <!-- Tab 1: Induction Furnace -->
+        <div id="furnace" class="tab-content active">
+            <div class="panel">
+                <h2 class="panel-title">Induction Furnace Problem Solver</h2>
+
+                <div class="info-box">
+                    <strong>Problem:</strong> A low-frequency induction furnace has a secondary voltage of 20V and takes
+                    600 kW at 0.6 p.f. when the hearth is full. If the secondary voltage is kept constant, determine the
+                    power absorbed and the p.f. when the hearth is half-full. Assume that the resistance of the secondary
+                    circuit is doubled but the reactance remains the same.
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Secondary Voltage (V):</label>
+                        <input type="number" id="furnace_voltage" value="20">
+                    </div>
+                    <div class="form-group">
+                        <label>Full Hearth Power (kW):</label>
+                        <input type="number" id="furnace_power" value="600">
+                    </div>
+                    <div class="form-group">
+                        <label>Full Hearth Power Factor:</label>
+                        <input type="number" id="furnace_pf" value="0.6" step="0.01">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="solveFurnaceProblem()">🔍 Solve Problem</button>
+                </div>
+
+                <div class="results" id="furnace_results" style="margin-top: 20px;">
+                    Click "Solve Problem" to see results...
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 2: Simulation Setup -->
+        <div id="simulation" class="tab-content">
+            <div class="panel">
+                <h2 class="panel-title">Electrical Parameters</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Supply Voltage (V):</label>
+                        <input type="number" id="voltage" value="400">
+                    </div>
+                    <div class="form-group">
+                        <label>Frequency (Hz):</label>
+                        <input type="number" id="frequency" value="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Stator Resistance (Ω):</label>
+                        <input type="number" id="r_stator" value="0.5" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Rotor Resistance (Ω):</label>
+                        <input type="number" id="r_rotor" value="0.3" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Stator Inductance (H):</label>
+                        <input type="number" id="l_stator" value="0.05" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Mutual Inductance (H):</label>
+                        <input type="number" id="l_mutual" value="0.03" step="0.01">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Mechanical Parameters</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Moment of Inertia (kg·m²):</label>
+                        <input type="number" id="inertia" value="0.1" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Friction Coefficient:</label>
+                        <input type="number" id="friction" value="0.01" step="0.001">
+                    </div>
+                    <div class="form-group">
+                        <label>Load Torque (N·m):</label>
+                        <input type="number" id="load_torque" value="50">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Solver Settings</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>ODE Solver:</label>
+                        <select id="solver_method">
+                            <option value="rk45">RK45 (High Accuracy)</option>
+                            <option value="euler">Euler (Fast)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Span (s):</label>
+                        <input type="number" id="time_span" value="5.0" step="0.1">
+                    </div>
+                    <div class="form-group">
+                        <label>Time Steps:</label>
+                        <input type="number" id="time_steps" value="500">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-success" onclick="startSimulation()">▶️ Start</button>
+                    <button class="btn-danger" onclick="stopSimulation()">⏹️ Stop</button>
+                    <button class="btn-warning" onclick="resetSimulation()">🔄 Reset</button>
+                </div>
+
+                <div id="sim_status" class="status ready">Status: Ready</div>
+                <div class="progress-bar">
+                    <div id="progress_fill" class="progress-fill">0%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Visualization -->
+        <div id="visualization" class="tab-content">
+            <div class="chart-grid">
+                <div class="panel">
+                    <h3 class="panel-title">Current (d-q axes)</h3>
+                    <div class="chart-container">
+                        <canvas id="chart_current"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">Electromagnetic Torque</h3>
+                    <div class="chart-container">
+                        <canvas id="chart_torque"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">Rotor Speed</h3>
+                    <div class="chart-container">
+                        <canvas id="chart_speed"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">Temperature</h3>
+                    <div class="chart-container">
+                        <canvas id="chart_temperature"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">Power Consumption</h3>
+                    <div class="chart-container">
+                        <canvas id="chart_power"></canvas>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h3 class="panel-title">Loss Distribution</h3>
+                    <div class="chart-container">
+                        <canvas id="chart_losses"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Advanced Control -->
+        <div id="control" class="tab-content">
+            <div class="panel">
+                <h2 class="panel-title">PID Control Parameters</h2>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <label>Proportional Gain (Kp):</label>
+                        <span id="kp_value">1.0</span>
+                    </div>
+                    <input type="range" id="kp_slider" min="0" max="10" step="0.1" value="1.0"
+                           oninput="updateSliderValue('kp')">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <label>Integral Gain (Ki):</label>
+                        <span id="ki_value">0.5</span>
+                    </div>
+                    <input type="range" id="ki_slider" min="0" max="5" step="0.1" value="0.5"
+                           oninput="updateSliderValue('ki')">
+                </div>
+
+                <div class="slider-container">
+                    <div class="slider-label">
+                        <label>Derivative Gain (Kd):</label>
+                        <span id="kd_value">0.1</span>
+                    </div>
+                    <input type="range" id="kd_slider" min="0" max="2" step="0.05" value="0.1"
+                           oninput="updateSliderValue('kd')">
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Thermal Derating</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Derating Start Temp (°C):</label>
+                        <input type="number" id="derate_temp" value="90">
+                    </div>
+                    <div class="form-group">
+                        <label>Maximum Temp (°C):</label>
+                        <input type="number" id="max_temp" value="120">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2 class="panel-title">Power Consumption Monitoring</h2>
+                <div class="results" id="power_monitoring">
+                    Run simulation to see power consumption data...
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Economic Analysis -->
+        <div id="economic" class="tab-content">
+            <div class="panel">
+                <h2 class="panel-title">Cost Parameters</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Electricity Cost ($/kWh):</label>
+                        <input type="number" id="elec_cost" value="0.12" step="0.01">
+                    </div>
+                    <div class="form-group">
+                        <label>Maintenance Cost ($/hour):</label>
+                        <input type="number" id="maint_cost" value="5.0" step="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label>Equipment Cost ($):</label>
+                        <input type="number" id="equip_cost" value="50000">
+                    </div>
+                    <div class="form-group">
+                        <label>Annual Operating Hours:</label>
+                        <input type="number" id="annual_hours" value="8760">
+                    </div>
+                    <div class="form-group">
+                        <label>Average Power (kW):</label>
+                        <input type="number" id="avg_power" value="50">
+                    </div>
+                    <div class="form-group">
+                        <label>Efficiency:</label>
+                        <input type="number" id="efficiency" value="0.92" step="0.01">
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="calculateEconomics()">💵 Calculate Costs</button>
+                </div>
+
+                <div class="results" id="economic_results" style="margin-top: 20px;">
+                    Click "Calculate Costs" to see economic analysis...
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 6: Multi-Physics -->
+        <div id="multiphysics" class="tab-content">
+            <div class="panel">
+                <h2 class="panel-title">Multi-Physics Simulation</h2>
+                <div class="info-box">
+                    This module performs coupled electromagnetic-thermal-mechanical simulation.
+                    It solves heat transfer equations simultaneously with electrical equations for accurate
+                    temperature prediction and evaluates shaft torque transients and bearing loads.
+                </div>
+
+                <div class="button-group">
+                    <button class="btn-primary" onclick="runLossAnalysis()">📊 Loss Breakdown Analysis</button>
+                    <button class="btn-primary" onclick="runStressAnalysis()">⚙️ Mechanical Stress Analysis</button>
+                    <button class="btn-primary" onclick="runThermalAnalysis()">🌡️ Thermal Analysis</button>
+                </div>
+
+                <div class="results" id="multiphysics_results" style="margin-top: 20px;">
+                    Select an analysis to view results...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let charts = {};
+        let simulationData = {
+            time: [],
+            i_d: [],
+            i_q: [],
+            torque: [],
+            speed: [],
+            temperature: [],
+            power: []
+        };
+        let simulationRunning = false;
+
+        // Initialize charts
+        function initCharts() {
+            // Current chart
+            charts.current = new Chart(document.getElementById('chart_current'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        {
+                            label: 'i_d (A)',
+                            data: [],
+                            borderColor: 'rgb(54, 162, 235)',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'i_q (A)',
+                            data: [],
+                            borderColor: 'rgb(255, 99, 132)',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true } }
+                }
+            });
+
+            // Torque chart
+            charts.torque = new Chart(document.getElementById('chart_torque'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Torque (N·m)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Speed chart
+            charts.speed = new Chart(document.getElementById('chart_speed'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Speed (rad/s)',
+                        data: [],
+                        borderColor: 'rgb(153, 102, 255)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Temperature chart
+            charts.temperature = new Chart(document.getElementById('chart_temperature'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: [],
+                        borderColor: 'rgb(255, 159, 64)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Power chart
+            charts.power = new Chart(document.getElementById('chart_power'), {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Power (W)',
+                        data: [],
+                        borderColor: 'rgb(201, 203, 207)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+
+            // Losses chart
+            charts.losses = new Chart(document.getElementById('chart_losses'), {
+                type: 'bar',
+                data: {
+                    labels: ['Copper Stator', 'Copper Rotor', 'Hysteresis', 'Eddy', 'Friction', 'Windage', 'Stray'],
+                    datasets: [{
+                        label: 'Loss (W)',
+                        data: [0, 0, 0, 0, 0, 0, 0],
+                        backgroundColor: [
+                            'rgba(255, 99, 132, 0.7)',
+                            'rgba(255, 159, 64, 0.7)',
+                            'rgba(255, 205, 86, 0.7)',
+                            'rgba(75, 192, 192, 0.7)',
+                            'rgba(54, 162, 235, 0.7)',
+                            'rgba(153, 102, 255, 0.7)',
+                            'rgba(201, 203, 207, 0.7)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+        // Tab switching
+        function showTab(tabName) {
+            const tabs = document.querySelectorAll('.tab');
+            const contents = document.querySelectorAll('.tab-content');
+
+            tabs.forEach(tab => tab.classList.remove('active'));
+            contents.forEach(content => content.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+        }
+
+        // Slider value updates
+        function updateSliderValue(param) {
+            const slider = document.getElementById(param + '_slider');
+            const valueSpan = document.getElementById(param + '_value');
+            valueSpan.textContent = parseFloat(slider.value).toFixed(2);
+        }
+
+        // Induction Furnace Solver
+        function solveFurnaceProblem() {
+            const V2 = parseFloat(document.getElementById('furnace_voltage').value);
+            const P_full = parseFloat(document.getElementById('furnace_power').value) * 1000;
+            const pf_full = parseFloat(document.getElementById('furnace_pf').value);
+
+            // Full hearth calculations
+            const S_full = P_full / pf_full;
+            const I_full = S_full / V2;
+            const Z_full = V2 / I_full;
+            const R_full = Z_full * pf_full;
+            const angle_full = Math.acos(pf_full);
+            const X_full = Z_full * Math.sin(angle_full);
+
+            // Half-full hearth
+            const R_half = 2 * R_full;
+            const X_half = X_full;
+            const Z_half = Math.sqrt(R_half**2 + X_half**2);
+            const I_half = V2 / Z_half;
+            const P_half = I_half**2 * R_half;
+            const pf_half = R_half / Z_half;
+
+            // Display results
+            let output = '=' + '='.repeat(79) + '\n';
+            output += 'INDUCTION FURNACE PROBLEM SOLUTION\n';
+            output += '=' + '='.repeat(79) + '\n\n';
+
+            output += 'FULL HEARTH CONDITIONS:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Power:                ${(P_full/1000).toFixed(2)} kW\n`;
+            output += `Power Factor:         ${pf_full.toFixed(4)}\n`;
+            output += `Current (RMS):        ${I_full.toFixed(2)} A\n`;
+            output += `Impedance:            ${Z_full.toFixed(6)} Ω\n`;
+            output += `Resistance:           ${R_full.toFixed(6)} Ω\n`;
+            output += `Reactance:            ${X_full.toFixed(6)} Ω\n\n`;
+
+            output += '=' + '='.repeat(79) + '\n';
+            output += 'HALF-FULL HEARTH CONDITIONS:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Power:                ${(P_half/1000).toFixed(2)} kW\n`;
+            output += `Power Factor:         ${pf_half.toFixed(4)}\n`;
+            output += `Current (RMS):        ${I_half.toFixed(2)} A\n`;
+            output += `Impedance:            ${Z_half.toFixed(6)} Ω\n`;
+            output += `Resistance:           ${R_half.toFixed(6)} Ω (doubled)\n`;
+            output += `Reactance:            ${X_half.toFixed(6)} Ω (unchanged)\n\n`;
+
+            output += '=' + '='.repeat(79) + '\n';
+            output += 'ANALYSIS:\n';
+            output += '-'.repeat(80) + '\n';
+            const power_change = ((P_half - P_full) / P_full * 100);
+            const pf_change = ((pf_half - pf_full) / pf_full * 100);
+            const current_change = ((I_half - I_full) / I_full * 100);
+
+            output += `Power Change:         ${power_change.toFixed(2)}%\n`;
+            output += `Power Factor Change:  ${pf_change.toFixed(2)}%\n`;
+            output += `Current Change:       ${current_change.toFixed(2)}%\n\n`;
+
+            output += '=' + '='.repeat(79) + '\n';
+            output += 'CONCLUSION:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `When the hearth is half-full:\n`;
+            output += `  • Power absorbed: ${(P_half/1000).toFixed(2)} kW\n`;
+            output += `  • Power factor:   ${pf_half.toFixed(4)}\n`;
+            output += '=' + '='.repeat(79) + '\n';
+
+            document.getElementById('furnace_results').textContent = output;
+        }
+
+        // ODE Solvers
+        class ODESolver {
+            static euler(f, y0, t_span, n_steps, args) {
+                const [t0, tf] = t_span;
+                const dt = (tf - t0) / n_steps;
+                const t = [];
+                const y = [y0.slice()];
+
+                for (let i = 0; i <= n_steps; i++) {
+                    t.push(t0 + i * dt);
+                }
+
+                for (let i = 0; i < n_steps; i++) {
+                    const dy = f(t[i], y[i], ...args);
+                    const y_next = y[i].map((val, idx) => val + dy[idx] * dt);
+                    y.push(y_next);
+                }
+
+                return { t, y };
+            }
+
+            static rk45(f, y0, t_span, n_steps, args) {
+                const [t0, tf] = t_span;
+                const dt = (tf - t0) / n_steps;
+                const t = [];
+                const y = [y0.slice()];
+
+                for (let i = 0; i <= n_steps; i++) {
+                    t.push(t0 + i * dt);
+                }
+
+                for (let i = 0; i < n_steps; i++) {
+                    const k1 = f(t[i], y[i], ...args);
+                    const y2 = y[i].map((val, idx) => val + k1[idx] * dt / 2);
+                    const k2 = f(t[i] + dt/2, y2, ...args);
+                    const y3 = y[i].map((val, idx) => val + k2[idx] * dt / 2);
+                    const k3 = f(t[i] + dt/2, y3, ...args);
+                    const y4 = y[i].map((val, idx) => val + k3[idx] * dt);
+                    const k4 = f(t[i] + dt, y4, ...args);
+
+                    const y_next = y[i].map((val, idx) =>
+                        val + (k1[idx] + 2*k2[idx] + 2*k3[idx] + k4[idx]) * dt / 6
+                    );
+                    y.push(y_next);
+                }
+
+                return { t, y };
+            }
+        }
+
+        // Electromagnetic model
+        function electromagneticModel(t, y, params) {
+            const [i_d, i_q, omega, theta, T] = y;
+            const { V_d, V_q, T_load, R_stator, L_stator, L_mutual, J, B, omega_e, C_thermal, R_thermal, T_ambient } = params;
+
+            // Electrical equations (RMS values)
+            const di_d_dt = (V_d - R_stator * i_d + omega_e * L_stator * i_q) / L_stator;
+            const di_q_dt = (V_q - R_stator * i_q - omega_e * L_stator * i_d) / L_stator;
+
+            // Electromagnetic torque
+            const T_em = 1.5 * 2 * L_mutual * i_d * i_q; // pole_pairs = 2
+
+            // Mechanical equation
+            const domega_dt = (T_em - T_load - B * omega) / J;
+
+            // Rotor angle
+            const dtheta_dt = omega;
+
+            // Thermal equation
+            const P_copper = R_stator * (i_d**2 + i_q**2);
+            const P_core = 0.1 * (V_d**2 + V_q**2) / R_stator;
+            const P_friction = B * omega**2;
+            const P_total = P_copper + P_core + P_friction;
+            const dT_dt = (P_total - (T - T_ambient) / R_thermal) / C_thermal;
+
+            return [di_d_dt, di_q_dt, domega_dt, dtheta_dt, dT_dt];
+        }
+
+        // Calculate losses
+        function calculateLosses(i_d, i_q, omega, V_d, V_q, params) {
+            const { R_stator, R_rotor, frequency } = params;
+
+            const P_copper_stator = R_stator * (i_d**2 + i_q**2);
+            const P_copper_rotor = R_rotor * (i_d**2 + i_q**2) * 0.5;
+
+            const B_max = Math.sqrt(V_d**2 + V_q**2) / (4.44 * frequency * 0.1);
+            const P_hysteresis = 0.05 * frequency * B_max**2;
+            const P_eddy = 0.02 * (frequency * B_max)**2;
+
+            const P_friction = params.B * omega**2;
+            const P_windage = 0.001 * omega**3;
+            const P_stray = 0.01 * (P_copper_stator + P_copper_rotor);
+
+            return {
+                copper_stator: P_copper_stator,
+                copper_rotor: P_copper_rotor,
+                hysteresis: P_hysteresis,
+                eddy_current: P_eddy,
+                friction: P_friction,
+                windage: P_windage,
+                stray: P_stray,
+                total: P_copper_stator + P_copper_rotor + P_hysteresis + P_eddy + P_friction + P_windage + P_stray
+            };
+        }
+
+        // Start simulation
+        function startSimulation() {
+            if (simulationRunning) {
+                alert('Simulation already running!');
+                return;
+            }
+
+            simulationRunning = true;
+            document.getElementById('sim_status').className = 'status running';
+            document.getElementById('sim_status').textContent = 'Status: Running...';
+
+            // Get parameters
+            const params = {
+                V_supply: parseFloat(document.getElementById('voltage').value),
+                frequency: parseFloat(document.getElementById('frequency').value),
+                R_stator: parseFloat(document.getElementById('r_stator').value),
+                R_rotor: parseFloat(document.getElementById('r_rotor').value),
+                L_stator: parseFloat(document.getElementById('l_stator').value),
+                L_mutual: parseFloat(document.getElementById('l_mutual').value),
+                J: parseFloat(document.getElementById('inertia').value),
+                B: parseFloat(document.getElementById('friction').value),
+                T_load: parseFloat(document.getElementById('load_torque').value),
+                C_thermal: 1000,
+                R_thermal: 5,
+                T_ambient: 25
+            };
+
+            params.omega_e = params.frequency * 2 * Math.PI;
+            params.V_d = params.V_supply / Math.sqrt(2);
+            params.V_q = 0;
+
+            const t_end = parseFloat(document.getElementById('time_span').value);
+            const n_steps = parseInt(document.getElementById('time_steps').value);
+            const method = document.getElementById('solver_method').value;
+
+            const y0 = [0, 0, 0, 0, params.T_ambient];
+
+            // Solve
+            let sol;
+            if (method === 'rk45') {
+                sol = ODESolver.rk45(electromagneticModel, y0, [0, t_end], n_steps, [params]);
+            } else {
+                sol = ODESolver.euler(electromagneticModel, y0, [0, t_end], n_steps, [params]);
+            }
+
+            // Extract data
+            simulationData.time = sol.t;
+            simulationData.i_d = sol.y.map(state => state[0]);
+            simulationData.i_q = sol.y.map(state => state[1]);
+            simulationData.speed = sol.y.map(state => state[2]);
+            simulationData.temperature = sol.y.map(state => state[4]);
+            simulationData.torque = sol.y.map(state =>
+                1.5 * 2 * params.L_mutual * state[0] * state[1]
+            );
+            simulationData.power = sol.y.map(state =>
+                params.V_d * state[0] + params.V_q * state[1]
+            );
+
+            // Update charts
+            updateCharts(params);
+
+            // Update power monitoring
+            updatePowerMonitoring(params);
+
+            // Update progress
+            document.getElementById('progress_fill').style.width = '100%';
+            document.getElementById('progress_fill').textContent = '100%';
+
+            simulationRunning = false;
+            document.getElementById('sim_status').className = 'status completed';
+            document.getElementById('sim_status').textContent = 'Status: Completed';
+        }
+
+        // Stop simulation
+        function stopSimulation() {
+            simulationRunning = false;
+            document.getElementById('sim_status').className = 'status ready';
+            document.getElementById('sim_status').textContent = 'Status: Stopped';
+        }
+
+        // Reset simulation
+        function resetSimulation() {
+            simulationRunning = false;
+            simulationData = {
+                time: [],
+                i_d: [],
+                i_q: [],
+                torque: [],
+                speed: [],
+                temperature: [],
+                power: []
+            };
+
+            // Clear charts
+            Object.values(charts).forEach(chart => {
+                if (chart.data.datasets) {
+                    chart.data.labels = [];
+                    chart.data.datasets.forEach(dataset => {
+                        dataset.data = [];
+                    });
+                    chart.update();
+                }
+            });
+
+            document.getElementById('sim_status').className = 'status ready';
+            document.getElementById('sim_status').textContent = 'Status: Reset';
+            document.getElementById('progress_fill').style.width = '0%';
+            document.getElementById('progress_fill').textContent = '0%';
+        }
+
+        // Update charts
+        function updateCharts(params) {
+            // Current chart
+            charts.current.data.labels = simulationData.time;
+            charts.current.data.datasets[0].data = simulationData.i_d;
+            charts.current.data.datasets[1].data = simulationData.i_q;
+            charts.current.update();
+
+            // Torque chart
+            charts.torque.data.labels = simulationData.time;
+            charts.torque.data.datasets[0].data = simulationData.torque;
+            charts.torque.update();
+
+            // Speed chart
+            charts.speed.data.labels = simulationData.time;
+            charts.speed.data.datasets[0].data = simulationData.speed;
+            charts.speed.update();
+
+            // Temperature chart
+            charts.temperature.data.labels = simulationData.time;
+            charts.temperature.data.datasets[0].data = simulationData.temperature;
+            charts.temperature.update();
+
+            // Power chart
+            charts.power.data.labels = simulationData.time;
+            charts.power.data.datasets[0].data = simulationData.power;
+            charts.power.update();
+
+            // Losses chart
+            if (simulationData.i_d.length > 0) {
+                const idx = simulationData.i_d.length - 1;
+                const losses = calculateLosses(
+                    simulationData.i_d[idx],
+                    simulationData.i_q[idx],
+                    simulationData.speed[idx],
+                    params.V_d,
+                    params.V_q,
+                    params
+                );
+
+                charts.losses.data.datasets[0].data = [
+                    losses.copper_stator,
+                    losses.copper_rotor,
+                    losses.hysteresis,
+                    losses.eddy_current,
+                    losses.friction,
+                    losses.windage,
+                    losses.stray
+                ];
+                charts.losses.update();
+            }
+        }
+
+        // Update power monitoring
+        function updatePowerMonitoring(params) {
+            if (simulationData.power.length === 0) return;
+
+            const avg_power = simulationData.power.reduce((a, b) => a + b) / simulationData.power.length;
+            const max_power = Math.max(...simulationData.power);
+            const min_power = Math.min(...simulationData.power);
+            const time_duration = simulationData.time[simulationData.time.length - 1];
+
+            const idx = simulationData.i_d.length - 1;
+            const losses = calculateLosses(
+                simulationData.i_d[idx],
+                simulationData.i_q[idx],
+                simulationData.speed[idx],
+                params.V_d,
+                params.V_q,
+                params
+            );
+
+            let output = '=' + '='.repeat(69) + '\n';
+            output += 'POWER CONSUMPTION MONITORING\n';
+            output += '=' + '='.repeat(69) + '\n\n';
+
+            output += `Average Power:        ${avg_power.toFixed(2)} W (${(avg_power/1000).toFixed(2)} kW)\n`;
+            output += `Maximum Power:        ${max_power.toFixed(2)} W (${(max_power/1000).toFixed(2)} kW)\n`;
+            output += `Minimum Power:        ${min_power.toFixed(2)} W (${(min_power/1000).toFixed(2)} kW)\n\n`;
+
+            output += `Simulation Duration:  ${time_duration.toFixed(2)} s\n\n`;
+
+            output += '=' + '='.repeat(69) + '\n';
+            output += 'DETAILED LOSS BREAKDOWN\n';
+            output += '=' + '='.repeat(69) + '\n\n';
+
+            output += `Copper Loss (Stator):  ${losses.copper_stator.toFixed(2)} W\n`;
+            output += `Copper Loss (Rotor):   ${losses.copper_rotor.toFixed(2)} W\n`;
+            output += `Hysteresis Loss:       ${losses.hysteresis.toFixed(2)} W\n`;
+            output += `Eddy Current Loss:     ${losses.eddy_current.toFixed(2)} W\n`;
+            output += `Friction Loss:         ${losses.friction.toFixed(2)} W\n`;
+            output += `Windage Loss:          ${losses.windage.toFixed(2)} W\n`;
+            output += `Stray Load Loss:       ${losses.stray.toFixed(2)} W\n`;
+            output += '-'.repeat(70) + '\n';
+            output += `Total Losses:          ${losses.total.toFixed(2)} W\n\n`;
+
+            if (avg_power > 0) {
+                const efficiency = ((avg_power - losses.total) / avg_power) * 100;
+                output += `Efficiency:            ${efficiency.toFixed(2)}%\n`;
+            }
+
+            document.getElementById('power_monitoring').textContent = output;
+        }
+
+        // Economic analysis
+        function calculateEconomics() {
+            const elec_cost = parseFloat(document.getElementById('elec_cost').value);
+            const maint_cost = parseFloat(document.getElementById('maint_cost').value);
+            const equip_cost = parseFloat(document.getElementById('equip_cost').value);
+            const annual_hours = parseFloat(document.getElementById('annual_hours').value);
+            const avg_power = parseFloat(document.getElementById('avg_power').value);
+            const efficiency = parseFloat(document.getElementById('efficiency').value);
+
+            // Annual costs
+            const energy_consumed = avg_power * annual_hours;
+            const electricity_cost = energy_consumed * elec_cost;
+            const maintenance_cost = annual_hours * maint_cost;
+            const power_loss = avg_power * (1 - efficiency);
+            const loss_cost = power_loss * annual_hours * elec_cost;
+            const total_annual = electricity_cost + maintenance_cost + loss_cost;
+
+            // Lifecycle cost (15 years, 5% discount)
+            const lifetime = 15;
+            const discount_rate = 0.05;
+            let pv_operating = 0;
+            for (let year = 1; year <= lifetime; year++) {
+                pv_operating += total_annual / Math.pow(1 + discount_rate, year);
+            }
+            const total_lifecycle = equip_cost + pv_operating;
+
+            let output = '=' + '='.repeat(79) + '\n';
+            output += 'ECONOMIC ANALYSIS RESULTS\n';
+            output += '=' + '='.repeat(79) + '\n\n';
+
+            output += 'ANNUAL OPERATING COSTS:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Energy Cost:           $${electricity_cost.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += `Maintenance Cost:      $${maintenance_cost.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += `Energy Loss Cost:      $${loss_cost.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += `Total Annual Cost:     $${total_annual.toLocaleString('en-US', {minimumFractionDigits: 2})}\n\n`;
+            output += `Energy Consumed:       ${energy_consumed.toLocaleString('en-US', {minimumFractionDigits: 2})} kWh\n`;
+
+            output += '\n' + '=' + '='.repeat(79) + '\n';
+            output += `LIFECYCLE COST ANALYSIS (${lifetime} years)\n`;
+            output += '=' + '='.repeat(79) + '\n\n';
+            output += `Equipment Cost:        $${equip_cost.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += `Annual Operating Cost: $${total_annual.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += `PV Operating Cost:     $${pv_operating.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += '-'.repeat(80) + '\n';
+            output += `Total Lifecycle Cost:  $${total_lifecycle.toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+            output += `Cost per Year:         $${(total_lifecycle/lifetime).toLocaleString('en-US', {minimumFractionDigits: 2})}\n`;
+
+            document.getElementById('economic_results').textContent = output;
+        }
+
+        // Multi-physics analyses
+        function runLossAnalysis() {
+            if (simulationData.i_d.length === 0) {
+                alert('Please run simulation first!');
+                return;
+            }
+
+            const params = {
+                R_stator: parseFloat(document.getElementById('r_stator').value),
+                R_rotor: parseFloat(document.getElementById('r_rotor').value),
+                frequency: parseFloat(document.getElementById('frequency').value),
+                B: parseFloat(document.getElementById('friction').value),
+                V_d: parseFloat(document.getElementById('voltage').value) / Math.sqrt(2),
+                V_q: 0
+            };
+
+            let output = '=' + '='.repeat(79) + '\n';
+            output += 'DETAILED LOSS BREAKDOWN ANALYSIS\n';
+            output += '=' + '='.repeat(79) + '\n\n';
+
+            const n_points = Math.min(5, simulationData.time.length);
+            const step = Math.floor(simulationData.time.length / n_points);
+
+            for (let i = 0; i < n_points; i++) {
+                const idx = Math.min(i * step, simulationData.time.length - 1);
+                const losses = calculateLosses(
+                    simulationData.i_d[idx],
+                    simulationData.i_q[idx],
+                    simulationData.speed[idx],
+                    params.V_d,
+                    params.V_q,
+                    params
+                );
+
+                output += `Time: ${simulationData.time[idx].toFixed(2)} s\n`;
+                output += '-'.repeat(80) + '\n';
+
+                const total = losses.total;
+                if (total > 0) {
+                    output += `Copper Loss (Stator):  ${losses.copper_stator.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.copper_stator/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += `Copper Loss (Rotor):   ${losses.copper_rotor.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.copper_rotor/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += `Hysteresis Loss:       ${losses.hysteresis.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.hysteresis/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += `Eddy Current Loss:     ${losses.eddy_current.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.eddy_current/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += `Friction Loss:         ${losses.friction.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.friction/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += `Windage Loss:          ${losses.windage.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.windage/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += `Stray Load Loss:       ${losses.stray.toFixed(2).padStart(8)} W `;
+                    output += `(${(losses.stray/total*100).toFixed(1).padStart(5)}%)\n`;
+
+                    output += '-'.repeat(80) + '\n';
+                    output += `Total Losses:          ${total.toFixed(2).padStart(8)} W\n`;
+                }
+                output += '\n';
+            }
+
+            document.getElementById('multiphysics_results').textContent = output;
+        }
+
+        function runStressAnalysis() {
+            if (simulationData.torque.length === 0) {
+                alert('Please run simulation first!');
+                return;
+            }
+
+            const torques = simulationData.torque.map(Math.abs);
+            const max_torque = Math.max(...torques);
+            const avg_torque = torques.reduce((a, b) => a + b) / torques.length;
+            const max_speed = Math.max(...simulationData.speed.map(Math.abs));
+
+            // Shaft stress calculation
+            const shaft_diameter = 0.05;
+            const shaft_radius = shaft_diameter / 2;
+            const J_shaft = Math.PI * Math.pow(shaft_radius, 4) / 2;
+            const tau_max = max_torque * shaft_radius / J_shaft / 1e6; // MPa
+            const safety_factor = 200 / tau_max; // Steel yield strength ~200 MPa
+
+            // Bearing loads
+            const bearing_radial = Math.abs(max_torque) / shaft_radius;
+            const bearing_axial = 0.1 * bearing_radial;
+
+            let output = '=' + '='.repeat(79) + '\n';
+            output += 'MECHANICAL STRESS ANALYSIS\n';
+            output += '=' + '='.repeat(79) + '\n\n';
+
+            output += 'OPERATING CONDITIONS:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Maximum Torque:        ${max_torque.toFixed(2)} N·m\n`;
+            output += `Average Torque:        ${avg_torque.toFixed(2)} N·m\n`;
+            output += `Maximum Speed:         ${max_speed.toFixed(2)} rad/s (${(max_speed*60/(2*Math.PI)).toFixed(1)} RPM)\n\n`;
+
+            output += 'PEAK LOAD STRESS ANALYSIS:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Shaft Shear Stress:    ${tau_max.toFixed(2)} MPa\n`;
+            output += `Bearing Radial Load:   ${bearing_radial.toFixed(2)} N\n`;
+            output += `Bearing Axial Load:    ${bearing_axial.toFixed(2)} N\n`;
+            output += `Safety Factor:         ${safety_factor.toFixed(2)}\n\n`;
+
+            output += 'DESIGN RECOMMENDATIONS:\n';
+            output += '-'.repeat(80) + '\n';
+            if (safety_factor < 2) {
+                output += '⚠ WARNING: Low safety factor - consider shaft reinforcement\n';
+            } else if (safety_factor < 3) {
+                output += '⚡ CAUTION: Adequate but monitor for fatigue\n';
+            } else {
+                output += '✓ SAFE: Safety factor within acceptable range\n';
+            }
+
+            if (bearing_radial > 5000) {
+                output += '⚠ WARNING: High bearing loads - verify bearing selection\n';
+            } else {
+                output += '✓ SAFE: Bearing loads within typical range\n';
+            }
+
+            document.getElementById('multiphysics_results').textContent = output;
+        }
+
+        function runThermalAnalysis() {
+            if (simulationData.temperature.length === 0) {
+                alert('Please run simulation first!');
+                return;
+            }
+
+            const T_ambient = 25;
+            const max_temp = Math.max(...simulationData.temperature);
+            const avg_temp = simulationData.temperature.reduce((a, b) => a + b) / simulationData.temperature.length;
+            const final_temp = simulationData.temperature[simulationData.temperature.length - 1];
+            const temp_rise = final_temp - T_ambient;
+
+            const derate_temp = parseFloat(document.getElementById('derate_temp').value);
+            const max_allowed = parseFloat(document.getElementById('max_temp').value);
+
+            let output = '=' + '='.repeat(79) + '\n';
+            output += 'COUPLED ELECTROMAGNETIC-THERMAL ANALYSIS\n';
+            output += '=' + '='.repeat(79) + '\n\n';
+
+            output += 'TEMPERATURE PROFILE:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Ambient Temperature:   ${T_ambient.toFixed(2)} °C\n`;
+            output += `Maximum Temperature:   ${max_temp.toFixed(2)} °C\n`;
+            output += `Average Temperature:   ${avg_temp.toFixed(2)} °C\n`;
+            output += `Final Temperature:     ${final_temp.toFixed(2)} °C\n`;
+            output += `Temperature Rise:      ${temp_rise.toFixed(2)} °C\n\n`;
+
+            output += 'THERMAL LIMITS:\n';
+            output += '-'.repeat(80) + '\n';
+            output += `Derating Temperature:  ${derate_temp.toFixed(2)} °C\n`;
+            output += `Maximum Temperature:   ${max_allowed.toFixed(2)} °C\n`;
+            output += `Thermal Margin:        ${(max_allowed - max_temp).toFixed(2)} °C\n\n`;
+
+            if (max_temp >= max_allowed) {
+                output += '⚠ OVERTEMPERATURE: Machine exceeds thermal limits!\n';
+            } else if (max_temp >= derate_temp) {
+                output += '⚡ DERATING REQUIRED: Operating in derated region\n';
+            } else {
+                const margin_percent = (max_allowed - max_temp) / max_allowed * 100;
+                output += `✓ NORMAL: ${margin_percent.toFixed(1)}% thermal margin available\n`;
+            }
+
+            output += '\n' + '=' + '='.repeat(79) + '\n';
+            output += 'COOLING RECOMMENDATIONS:\n';
+            output += '=' + '='.repeat(79) + '\n\n';
+
+            if (temp_rise > 60) {
+                output += '• Consider enhanced cooling system (forced air/liquid cooling)\n';
+                output += '• Verify ambient temperature and ventilation\n';
+                output += '• Check for blocked cooling paths\n';
+            } else if (temp_rise > 40) {
+                output += '• Monitor cooling system performance\n';
+                output += '• Ensure adequate ventilation\n';
+            } else {
+                output += '• Current cooling is adequate\n';
+                output += '• Maintain regular cleaning of cooling surfaces\n';
+            }
+
+            document.getElementById('multiphysics_results').textContent = output;
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            initCharts();
+            solveFurnaceProblem(); // Show default solution
+        };
+    </script>
+</body>
+</html>
